@@ -31,9 +31,10 @@ public class SecurityConfig {
         http.sessionManagement(configurer -> configurer.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/article/**", "/user/**").authenticated()
-                .anyRequest().permitAll()
-        ).httpBasic(Customizer.withDefaults());
+                        .requestMatchers("/article/**", "/user/**").authenticated()
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
+                        .anyRequest().permitAll()
+                ).httpBasic(Customizer.withDefaults());
 
         return http.build();
     }

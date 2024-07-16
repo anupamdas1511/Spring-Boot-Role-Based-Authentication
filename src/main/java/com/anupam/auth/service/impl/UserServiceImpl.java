@@ -34,6 +34,16 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public void saveAdmin(User user) {
+        Optional<User> existingUser = userRepository.findByUsername(user.getUsername());
+        if (existingUser.isEmpty()) {
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+            user.setRoles(List.of("USER", "ADMIN"));
+            userRepository.save(user);
+        }
+    }
+
+    @Override
     public void updateUser(User user, String username) {
         Optional<User> existingUser = userRepository.findByUsername(username);
         if (existingUser.isPresent()) {

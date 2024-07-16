@@ -8,6 +8,9 @@ import java.util.Optional;
 
 public interface UserService {
     void saveUser(User user);
+
+    void saveAdmin(User user);
+
     void updateUser(User user, String username);
     List<User> getAll();
     Optional<User> findById(ObjectId id);
