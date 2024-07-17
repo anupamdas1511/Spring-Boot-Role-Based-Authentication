@@ -76,7 +76,7 @@ public class SecurityConfig {
                         .requestMatchers("/article/**", "/user/**").authenticated()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .anyRequest().permitAll()
-                ).httpBasic(Customizer.withDefaults());
+                ).httpBasic(Customizer.withDefaults()); // Uses Basic Auth Authentication
 
         return http.build();
     }
@@ -141,6 +141,133 @@ HMACSHA256(
     base64UrlEncode(header) + "." + base64UrlEncode(payload)
 )
 ```
+
+### How to implement JWT in the project
+
+- Create a utility class for Jwt e.g. JwtUtil in this case
+
+This class will contain methods for creating tokens, setting claims, handle expiry of token and other utilities.
+
+```java
+@Component
+public class JwtUtil {
+
+    @Value("${JWT_SECRET_KEY}")
+    private String SECRET;
+    private final int EXPIRATION_TIME = 1000 * 60 * 60 * 5; // 5 hr
+
+    public String extractUsername(String token) {
+        return extractAllClaims(token).getSubject();
+    }
+
+    private Claims extractAllClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(getSigningKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+    }
+
+    public Date extractExpiration(String token) {
+        return extractAllClaims(token).getExpiration();
+    }
+
+    public String generateToken(String username) {
+        Map<String, Object> claims = new HashMap<>();
+        return createToken(claims, username);
+    }
+
+    private String createToken(Map<String, Object> claims, String subject) {
+        return Jwts.builder()
+                .claims(claims)
+                .subject(subject)
+                .header().empty().add("typ", "JWT")
+                .and()
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME)) // 5 hr
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    private SecretKey getSigningKey() {
+        return Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public boolean validateToken(String token) {
+        return !isTokenExpired(token);
+    }
+
+    private boolean isTokenExpired(String token) {
+        return extractExpiration(token).before(new Date());
+    }
+}
+```
+
+- Create a JwtFilter class
+
+This class will be responsible for taking care of the authentication. All the authenticated request will pass through this filter. This will need the use of UserDetailService class and JwtUtil class.
+
+```java
+@Component
+public class JwtFilter extends OncePerRequestFilter {
+
+    private final UserDetailsService userDetailsService;
+    private final JwtUtil jwtUtil;
+
+    @Autowired
+    public JwtFilter(UserDetailsService userDetailsService, JwtUtil jwtUtil) {
+        this.userDetailsService = userDetailsService;
+        this.jwtUtil = jwtUtil;
+    }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+        String authHeader = request.getHeader("Authorization");
+        String username = null;
+        String jwtToken = null;
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            jwtToken = authHeader.substring(7);
+            username = jwtUtil.extractUsername(jwtToken);
+        }
+
+        if (username != null) {
+            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            if (jwtUtil.validateToken(jwtToken)) {
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            }
+
+            filterChain.doFilter(request, response);
+        }
+    }
+}
+```
+
+
+- In the SecurityConfig class, changes must be made so that the request should pass through the filter, instead of basic auth.
+
+JwtFilter class needs to be injected here.
+
+```java
+// These are the changes that need to be done in SecurityConfig class
+@Autowired
+private JwtFilter jwtFilter;
+@Bean
+public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    http.sessionManagement(configurer -> configurer.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .csrf(AbstractHttpConfigurer::disable)
+            .authorizeHttpRequests(auth -> auth
+                    .requestMatchers("/article/**", "/user/**").authenticated()
+                    .requestMatchers("/admin/**").hasRole("ADMIN")
+                    .anyRequest().permitAll()
+            ).addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class); // this is the change
+
+    return http.build();
+}
+```
+
+
 
 
 

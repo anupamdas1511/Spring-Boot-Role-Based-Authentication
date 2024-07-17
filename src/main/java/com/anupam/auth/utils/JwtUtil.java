@@ -3,6 +3,7 @@ package com.anupam.auth.utils;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -14,8 +15,9 @@ import java.util.Map;
 @Component
 public class JwtUtil {
 
-    private final String SECRET = "asaaavfhWYUbs^%#Gsu^HSAHATS$gnBHnka#s^yoP";
-    private final int EXPIRATION_TIME = 1000 * 60 * 50 * 5;
+    @Value("${JWT_SECRET_KEY}")
+    private String SECRET;
+    private final int EXPIRATION_TIME = 1000 * 60 * 60 * 5; // 5 hr
 
     public String extractUsername(String token) {
         return extractAllClaims(token).getSubject();
