@@ -49,6 +49,7 @@ public class PublicController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody User user) {
+        log.debug("Login user: {}", user);
         try {
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(user.getUsername(), user.getPassword()));
             UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());

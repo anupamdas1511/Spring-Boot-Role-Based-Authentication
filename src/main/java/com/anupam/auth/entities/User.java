@@ -9,6 +9,7 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Document("users")
@@ -26,6 +27,8 @@ public class User {
     private List<String> roles;
     @CreatedDate
     private LocalDateTime createdAt;
+
+    private List<ObjectId> articles = new ArrayList<>();
 
     public User() {
         this.createdAt = LocalDateTime.now();
